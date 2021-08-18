@@ -36,12 +36,29 @@ namespace Service.WalletObserver.Services
             _logger.LogInformation($"AddNewWalletAsync receive request: {JsonConvert.SerializeObject(request)}");
             try
             {
-                await _internalWalletStorage.SaveWallet(new InternalWallet()
+                var wallet = new InternalWallet()
                 {
                     Name = request.Name,
-                    MinBalanceInUsd = request.MinBalanceInUsd,
                     AssetInWalletCollection = await GetAssetInWalletCollection(request.Name)
-                });
+                };
+                var assetBalance = wallet.AssetInWalletCollection.FirstOrDefault(e => e.Asset == request.Asset);
+
+                if (assetBalance == null)
+                {
+                    wallet.AssetInWalletCollection.Add(new AssetInWallet()
+                    {
+                        Asset = request.Asset,
+                        Volume = 0,
+                        UsdVolume = 0,
+                        MinBalanceInUsd = request.MinBalanceInUsd
+                    });
+                }
+                else
+                {
+                    assetBalance.MinBalanceInUsd = request.MinBalanceInUsd;
+                }
+                
+                await _internalWalletStorage.SaveWallet(wallet);
             } 
             catch (Exception ex)
             {
