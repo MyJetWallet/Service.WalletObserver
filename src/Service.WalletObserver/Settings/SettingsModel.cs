@@ -16,5 +16,8 @@ namespace Service.WalletObserver.Settings
 
         [YamlProperty("WalletObserver.MyNoSqlWriterUrl")]
         public string MyNoSqlWriterUrl { get; set; }
+
+        [YamlProperty("WalletObserver.BalancesGrpcServiceUrl")]
+        public string BalancesGrpcServiceUrl { get; set; }
     }
 }

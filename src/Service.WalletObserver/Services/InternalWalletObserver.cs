@@ -1,8 +1,11 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using Service.WalletObserver.Domain;
+using Service.Balances.Grpc;
+using Service.Balances.Grpc.Models;
 using Service.WalletObserver.Domain.Models;
 using Service.WalletObserver.Grpc;
 using Service.WalletObserver.Grpc.Models;
@@ -13,12 +16,15 @@ namespace Service.WalletObserver.Services
     {
         private readonly ILogger<InternalWalletObserver> _logger;
         private readonly InternalWalletStorage _internalWalletStorage;
+        private readonly IWalletBalanceService _walletBalanceService;
 
         public InternalWalletObserver(ILogger<InternalWalletObserver> logger,
-            InternalWalletStorage internalWalletStorage)
+            InternalWalletStorage internalWalletStorage,
+            IWalletBalanceService walletBalanceService)
         {
             _logger = logger;
             _internalWalletStorage = internalWalletStorage;
+            _walletBalanceService = walletBalanceService;
         }
         
         public async Task<AddNewWalletResponse> UpsertWalletAsync(AddNewWalletRequest request)
@@ -29,7 +35,8 @@ namespace Service.WalletObserver.Services
                 await _internalWalletStorage.SaveWallet(new InternalWallet()
                 {
                     Name = request.Name,
-                    MinBalanceInUsd = request.MinBalanceInUsd
+                    MinBalanceInUsd = request.MinBalanceInUsd,
+                    AssetInWalletCollection = await GetAssetInWalletCollection(request.Name)
                 });
             } 
             catch (Exception ex)
@@ -45,6 +52,28 @@ namespace Service.WalletObserver.Services
             {
                 Success = true
             };
+        }
+
+        private async Task<List<AssetInWallet>> GetAssetInWalletCollection(string walletName)
+        {
+            var balancesDto = await _walletBalanceService.GetWalletBalancesAsync(new GetWalletBalancesRequest()
+            {
+                WalletId = walletName
+            });
+            var result = new List<AssetInWallet>();
+            if (balancesDto?.Balances != null && balancesDto.Balances.Any())
+            {
+                balancesDto.Balances.ForEach(balance =>
+                {
+                    result.Add(new AssetInWallet()
+                    {
+                        Asset = balance.AssetId,
+                        Volume = (decimal) balance.Balance,
+                        UsdVolume = 0 // todo : calculate usd volume
+                    });
+                });
+            }
+            return result;
         }
 
         public async Task<GetWalletsResponse> GetWalletsAsync()

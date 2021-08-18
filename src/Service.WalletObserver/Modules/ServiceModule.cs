@@ -4,10 +4,11 @@ using Autofac.Core.Registration;
 using MyJetWallet.Sdk.NoSql;
 using Service.WalletObserver.Domain;
 using Service.WalletObserver.Domain.Models;
+using Service.WalletObserver.Services;
 
 namespace Service.WalletObserver.Modules
 {
-    public class ServiceModule: Module
+    public class ServiceModule : Module
     {
         protected override void Load(ContainerBuilder builder)
         {
@@ -15,6 +16,7 @@ namespace Service.WalletObserver.Modules
             
             builder
                 .RegisterType<InternalWalletStorage>()
+                .AsSelf()
                 .As<IStartable>()
                 .AutoActivate()
                 .SingleInstance();

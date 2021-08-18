@@ -65,6 +65,7 @@ namespace Service.WalletObserver
         {
             builder.RegisterModule<SettingsModule>();
             builder.RegisterModule<ServiceModule>();
+            builder.RegisterModule<ClientModule>();
         }
     }
 }

@@ -7,7 +7,7 @@ using MyNoSqlServer.Abstractions;
 using Newtonsoft.Json;
 using Service.WalletObserver.Domain.Models;
 
-namespace Service.WalletObserver.Domain
+namespace Service.WalletObserver.Services
 {
     public class InternalWalletStorage : IStartable
     {
