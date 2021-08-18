@@ -19,5 +19,8 @@ namespace Service.WalletObserver.Settings
 
         [YamlProperty("WalletObserver.BalancesGrpcServiceUrl")]
         public string BalancesGrpcServiceUrl { get; set; }
+
+        [YamlProperty("WalletObserver.MyNoSqlReaderHostPort")]
+        public string MyNoSqlReaderHostPort { get; set; }
     }
 }

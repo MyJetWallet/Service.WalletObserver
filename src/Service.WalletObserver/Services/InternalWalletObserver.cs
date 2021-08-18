@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Service.Balances.Grpc;
 using Service.Balances.Grpc.Models;
+using Service.IndexPrices.Client;
 using Service.WalletObserver.Domain.Models;
 using Service.WalletObserver.Grpc;
 using Service.WalletObserver.Grpc.Models;
@@ -17,14 +18,17 @@ namespace Service.WalletObserver.Services
         private readonly ILogger<InternalWalletObserver> _logger;
         private readonly InternalWalletStorage _internalWalletStorage;
         private readonly IWalletBalanceService _walletBalanceService;
+        private readonly IIndexPricesClient _indexPricesClient;
 
         public InternalWalletObserver(ILogger<InternalWalletObserver> logger,
             InternalWalletStorage internalWalletStorage,
-            IWalletBalanceService walletBalanceService)
+            IWalletBalanceService walletBalanceService,
+            IIndexPricesClient indexPricesClient)
         {
             _logger = logger;
             _internalWalletStorage = internalWalletStorage;
             _walletBalanceService = walletBalanceService;
+            _indexPricesClient = indexPricesClient;
         }
         
         public async Task<AddNewWalletResponse> UpsertWalletAsync(AddNewWalletRequest request)
@@ -65,11 +69,15 @@ namespace Service.WalletObserver.Services
             {
                 balancesDto.Balances.ForEach(balance =>
                 {
+                    var volume = (decimal) balance.Balance;
+                    var (indexPrice, usdVolume) =
+                        _indexPricesClient.GetIndexPriceByAssetVolumeAsync(balance.AssetId, volume);
+                    
                     result.Add(new AssetInWallet()
                     {
                         Asset = balance.AssetId,
-                        Volume = (decimal) balance.Balance,
-                        UsdVolume = 0 // todo : calculate usd volume
+                        Volume = volume,
+                        UsdVolume = usdVolume
                     });
                 });
             }
