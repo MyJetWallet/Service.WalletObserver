@@ -23,7 +23,6 @@ namespace Service.WalletObserver.Services
         
         public async Task<AddNewWalletResponse> UpsertWalletAsync(AddNewWalletRequest request)
         {
-            // TODO: validate wallet
             _logger.LogInformation($"AddNewWalletAsync receive request: {JsonConvert.SerializeObject(request)}");
             try
             {
