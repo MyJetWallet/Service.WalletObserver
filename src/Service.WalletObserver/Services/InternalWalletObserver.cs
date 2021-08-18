@@ -31,6 +31,7 @@ namespace Service.WalletObserver.Services
             _indexPricesClient = indexPricesClient;
         }
         
+        // TODO: при каждом апдейте будут затираться минимумы по другим ассетам
         public async Task<AddNewWalletResponse> UpsertWalletAsync(AddNewWalletRequest request)
         {
             _logger.LogInformation($"AddNewWalletAsync receive request: {JsonConvert.SerializeObject(request)}");
