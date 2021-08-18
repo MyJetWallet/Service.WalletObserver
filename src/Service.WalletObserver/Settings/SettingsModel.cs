@@ -13,5 +13,8 @@ namespace Service.WalletObserver.Settings
 
         [YamlProperty("WalletObserver.ElkLogs")]
         public LogElkSettings ElkLogs { get; set; }
+
+        [YamlProperty("WalletObserver.MyNoSqlWriterUrl")]
+        public string MyNoSqlWriterUrl { get; set; }
     }
 }
