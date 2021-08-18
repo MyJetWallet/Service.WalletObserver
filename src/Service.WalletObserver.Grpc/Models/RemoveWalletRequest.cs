@@ -3,9 +3,8 @@ using System.Runtime.Serialization;
 namespace Service.WalletObserver.Grpc.Models
 {
     [DataContract]
-    public class HelloRequest
+    public class RemoveWalletRequest
     {
-        [DataMember(Order = 1)]
-        public string Name { get; set; }
+        [DataMember(Order = 1)] public string Name { get; set; }
     }
 }

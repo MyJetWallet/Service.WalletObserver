@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Service.WalletObserver.Domain.Models\Service.WalletObserver.Domain.Models.csproj" />
+    <ProjectReference Include="..\Service.WalletObserver.Domain\Service.WalletObserver.Domain.csproj" />
   </ItemGroup>
 
 </Project>

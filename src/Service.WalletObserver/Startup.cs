@@ -50,7 +50,7 @@ namespace Service.WalletObserver
 
             app.UseEndpoints(endpoints =>
             {
-                endpoints.MapGrpcSchema<HelloService, IHelloService>();
+                endpoints.MapGrpcSchema<InternalWalletObserver, IInternalWalletObserver>();
 
                 endpoints.MapGrpcSchemaRegistry();
 

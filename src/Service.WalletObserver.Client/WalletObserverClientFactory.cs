@@ -11,6 +11,6 @@ namespace Service.WalletObserver.Client
         {
         }
 
-        public IHelloService GetHelloService() => CreateGrpcService<IHelloService>();
+        public IInternalWalletObserver GetHelloService() => CreateGrpcService<IInternalWalletObserver>();
     }
 }
