@@ -8,13 +8,10 @@ namespace Service.WalletObserver.Grpc
     public interface IInternalWalletObserver
     {
         [OperationContract]
-        Task<AddNewWalletResponse> AddNewWalletAsync(AddNewWalletRequest request);
+        Task<AddNewWalletResponse> UpsertWalletAsync(AddNewWalletRequest request);
         
         [OperationContract]
         Task<GetWalletsResponse> GetWalletsAsync();
-        
-        [OperationContract]
-        Task<ChangeWalletMinBalanceResponse> ChangeWalletMinBalanceAsync(ChangeWalletMinBalanceRequest request);
         
         [OperationContract]
         Task<RemoveWalletResponse> RemoveWalletAsync(RemoveWalletRequest request);

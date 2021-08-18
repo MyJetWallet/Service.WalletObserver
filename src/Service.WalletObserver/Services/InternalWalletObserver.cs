@@ -1,9 +1,8 @@
 ﻿using System;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using MyNoSqlServer.Abstractions;
 using Newtonsoft.Json;
+using Service.WalletObserver.Domain;
 using Service.WalletObserver.Domain.Models;
 using Service.WalletObserver.Grpc;
 using Service.WalletObserver.Grpc.Models;
@@ -13,26 +12,28 @@ namespace Service.WalletObserver.Services
     public class InternalWalletObserver: IInternalWalletObserver
     {
         private readonly ILogger<InternalWalletObserver> _logger;
-        private readonly IMyNoSqlServerDataWriter<InternalWalletNoSql> _dataWriter;
+        private readonly InternalWalletStorage _internalWalletStorage;
 
         public InternalWalletObserver(ILogger<InternalWalletObserver> logger,
-            IMyNoSqlServerDataWriter<InternalWalletNoSql> dataWriter)
+            InternalWalletStorage internalWalletStorage)
         {
             _logger = logger;
-            _dataWriter = dataWriter;
+            _internalWalletStorage = internalWalletStorage;
         }
-
-        public async Task<AddNewWalletResponse> AddNewWalletAsync(AddNewWalletRequest request)
+        
+        public async Task<AddNewWalletResponse> UpsertWalletAsync(AddNewWalletRequest request)
         {
+            // TODO: validate wallet
             _logger.LogInformation($"AddNewWalletAsync receive request: {JsonConvert.SerializeObject(request)}");
             try
             {
-                await _dataWriter.InsertOrReplaceAsync(InternalWalletNoSql.Create(new InternalWallet()
+                await _internalWalletStorage.SaveWallet(new InternalWallet()
                 {
                     Name = request.Name,
                     MinBalanceInUsd = request.MinBalanceInUsd
-                }));
-            } catch (Exception ex)
+                });
+            } 
+            catch (Exception ex)
             {
                 _logger.LogError($"AddNewWalletAsync throw exception: {JsonConvert.SerializeObject(ex)}");
                 return new AddNewWalletResponse()
@@ -47,19 +48,48 @@ namespace Service.WalletObserver.Services
             };
         }
 
-        public Task<GetWalletsResponse> GetWalletsAsync()
+        public async Task<GetWalletsResponse> GetWalletsAsync()
         {
-            throw new NotImplementedException();
+            _logger.LogInformation($"GetWalletsAsync receive request.");
+
+            var response = new GetWalletsResponse();
+            try
+            {
+                response.WalletList = _internalWalletStorage.GetWallets();
+                response.Success = true;
+            } 
+            catch (Exception ex)
+            {
+                _logger.LogError($"GetWalletsAsync throw exception: {JsonConvert.SerializeObject(ex)}");
+                return new GetWalletsResponse()
+                {
+                    Success = false,
+                    ErrorMessage = ex.Message
+                };
+            }
+            return response;
         }
 
-        public Task<ChangeWalletMinBalanceResponse> ChangeWalletMinBalanceAsync(ChangeWalletMinBalanceRequest request)
+        public async Task<RemoveWalletResponse> RemoveWalletAsync(RemoveWalletRequest request)
         {
-            throw new NotImplementedException();
-        }
-
-        public Task<RemoveWalletResponse> RemoveWalletAsync(RemoveWalletRequest request)
-        {
-            throw new NotImplementedException();
+            _logger.LogInformation($"RemoveWalletAsync receive request: {JsonConvert.SerializeObject(request)}");
+            try
+            {
+                await _internalWalletStorage.RemoveWallet(request.Name);
+            } 
+            catch (Exception ex)
+            {
+                _logger.LogError($"RemoveWalletAsync throw exception: {JsonConvert.SerializeObject(ex)}");
+                return new RemoveWalletResponse()
+                {
+                    Success = false,
+                    ErrorMessage = ex.Message
+                };
+            }
+            return new RemoveWalletResponse()
+            {
+                Success = true
+            };
         }
     }
 }
