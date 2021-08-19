@@ -14,7 +14,7 @@ namespace Service.WalletObserver.Services
         private readonly ILogger<InternalWalletStorage> _logger;
         private readonly IMyNoSqlServerDataWriter<InternalWalletNoSql> _dataWriter;
 
-        private Dictionary<string, InternalWallet> _wallets = new Dictionary<string, InternalWallet>();
+        private List<InternalWalletBalance> _walletBalances = new List<InternalWalletBalance>();
         
         public InternalWalletStorage(IMyNoSqlServerDataWriter<InternalWalletNoSql> dataWriter,
             ILogger<InternalWalletStorage> logger)
@@ -23,30 +23,55 @@ namespace Service.WalletObserver.Services
             _logger = logger;
         }
 
-        public async Task SaveWallet(InternalWallet wallet)
+        public async Task SaveWallet(InternalWalletBalance walletBalance)
         {
-            await _dataWriter.InsertOrReplaceAsync(InternalWalletNoSql.Create(wallet));
+            await _dataWriter.InsertOrReplaceAsync(InternalWalletNoSql.Create(walletBalance));
 
             await ReloadSettings();
 
             _logger.LogInformation("Updated InternalWallet: {jsonText}",
-                JsonConvert.SerializeObject(wallet));
+                JsonConvert.SerializeObject(walletBalance));
         }
         
-        public List<InternalWallet> GetWallets()
+        public async Task<List<InternalWalletBalance>> GetWalletsAsync()
         {
-            return _wallets.Values.ToList();
+            if (!_walletBalances.Any())
+            {
+                await ReloadSettings();
+            }
+            return _walletBalances;
+        }
+        
+        public async Task<List<InternalWalletBalance>> GetWalletBalanceAsync(string walletName)
+        {
+            if (!_walletBalances.Any())
+            {
+                await ReloadSettings();
+            }
+            return _walletBalances.Where(e => e.WalletName == walletName).ToList();
+        }
+        
+        public async Task<InternalWalletBalance> GetWalletBalanceAsync(string walletName, string asset)
+        {
+            if (!_walletBalances.Any())
+            {
+                await ReloadSettings();
+            }
+            return _walletBalances.FirstOrDefault(e => e.WalletName == walletName && e.Asset == asset);
         }
 
         public async Task RemoveWallet(string walletName)
         {
-            if (_wallets.TryGetValue(walletName, out var result))
+            var walletBalances = _walletBalances.Where(e => e.WalletName == walletName).ToList();
+            
+            if (walletBalances.Any())
             {
-                var noSqlEntity = InternalWalletNoSql.Create(new InternalWallet() {Name = walletName});
-                await _dataWriter.DeleteAsync(noSqlEntity.PartitionKey, noSqlEntity.RowKey);
-                
+                foreach (var walletBalance in walletBalances)
+                {
+                    var noSqlEntity = InternalWalletNoSql.Create(new InternalWalletBalance() {WalletName = walletName, Asset = walletBalance.Asset});
+                    await _dataWriter.DeleteAsync(noSqlEntity.PartitionKey, noSqlEntity.RowKey);
+                }
                 _logger.LogInformation("Removed wallet with name: {jsonText}", walletName);
-                
                 await ReloadSettings();
             }
         }
@@ -54,14 +79,9 @@ namespace Service.WalletObserver.Services
         private async Task ReloadSettings()
         {
             var wallets = (await _dataWriter.GetAsync()).ToList();
-            var walletMap = new Dictionary<string, InternalWallet>();
-            
-            foreach (var wallet in wallets)
-            {
-                walletMap[wallet.Wallet.Name] =
-                    wallet.Wallet;
-            }
-            _wallets = walletMap;
+            var walletMap = new List<InternalWalletBalance>();
+            walletMap.AddRange(wallets.Select(e=> e.WalletBalance));
+            _walletBalances = walletMap;
         }
 
         public void Start()

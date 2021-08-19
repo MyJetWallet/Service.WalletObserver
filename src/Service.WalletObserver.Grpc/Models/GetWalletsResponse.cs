@@ -9,6 +9,6 @@ namespace Service.WalletObserver.Grpc.Models
     {
         [DataMember(Order = 1)] public bool Success { get; set; }
         [DataMember(Order = 2)] public string ErrorMessage { get; set; }
-        [DataMember(Order = 3)] public List<InternalWallet> WalletList { get; set; }
+        [DataMember(Order = 3)] public List<InternalWalletBalance> WalletList { get; set; }
     }
 }

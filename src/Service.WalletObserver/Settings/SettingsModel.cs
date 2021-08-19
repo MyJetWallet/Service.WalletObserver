@@ -22,5 +22,8 @@ namespace Service.WalletObserver.Settings
 
         [YamlProperty("WalletObserver.MyNoSqlReaderHostPort")]
         public string MyNoSqlReaderHostPort { get; set; }
+
+        [YamlProperty("WalletObserver.BalanceUpdateTimerInSeconds")]
+        public int BalanceUpdateTimerInSeconds { get; set; }
     }
 }

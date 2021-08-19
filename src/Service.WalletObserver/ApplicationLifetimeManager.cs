@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using MyJetWallet.Sdk.NoSql;
 using MyJetWallet.Sdk.Service;
 using MyNoSqlServer.DataReader;
+using Service.WalletObserver.Jobs;
 
 namespace Service.WalletObserver
 {

@@ -11,7 +11,7 @@ namespace Service.WalletObserver.Client
         {
             var factory = new WalletObserverClientFactory(grpcServiceUrl);
 
-            builder.RegisterInstance(factory.GetHelloService()).As<IInternalWalletObserver>().SingleInstance();
+            builder.RegisterInstance(factory.GetHelloService()).As<IInternalWalletObserverService>().SingleInstance();
         }
     }
 }

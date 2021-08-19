@@ -5,7 +5,7 @@ using Service.WalletObserver.Grpc.Models;
 namespace Service.WalletObserver.Grpc
 {
     [ServiceContract]
-    public interface IInternalWalletObserver
+    public interface IInternalWalletObserverService
     {
         [OperationContract]
         Task<AddNewWalletResponse> UpsertWalletAsync(AddNewWalletRequest request);
