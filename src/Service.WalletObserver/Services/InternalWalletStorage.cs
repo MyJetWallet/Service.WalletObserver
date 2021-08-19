@@ -39,7 +39,7 @@ namespace Service.WalletObserver.Services
             {
                 await ReloadSettings();
             }
-            return _walletBalances;
+            return _walletBalances.Where(e => !string.IsNullOrWhiteSpace(e.Asset)).ToList();
         }
         
         public async Task<List<InternalWalletBalance>> GetWalletBalanceAsync(string walletName)
