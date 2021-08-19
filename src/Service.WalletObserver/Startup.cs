@@ -13,6 +13,7 @@ using ProtoBuf.Grpc.Server;
 using Service.WalletObserver.Grpc;
 using Service.WalletObserver.Modules;
 using Service.WalletObserver.Services;
+using Service.WalletObserver.Services.Grpc;
 using SimpleTrading.BaseMetrics;
 using SimpleTrading.ServiceStatusReporterConnector;
 

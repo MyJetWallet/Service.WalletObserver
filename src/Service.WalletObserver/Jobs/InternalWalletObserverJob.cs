@@ -15,14 +15,17 @@ namespace Service.WalletObserver.Jobs
         private readonly MyTaskTimer _timer;
         private readonly InternalWalletStorage _internalWalletStorage;
         private readonly InternalWalletObserverMath _internalWalletObserverMath;
+        private readonly InternalWalletObserverMetrics _internalWalletObserverMetrics;
 
         public InternalWalletObserverJob(ILogger<InternalWalletObserverJob> logger,
             InternalWalletStorage internalWalletStorage,
-            InternalWalletObserverMath internalWalletObserverMath)
+            InternalWalletObserverMath internalWalletObserverMath,
+            InternalWalletObserverMetrics internalWalletObserverMetrics)
         {
             _logger = logger;
             _internalWalletStorage = internalWalletStorage;
             _internalWalletObserverMath = internalWalletObserverMath;
+            _internalWalletObserverMetrics = internalWalletObserverMetrics;
             _timer = new MyTaskTimer(nameof(InternalWalletObserverJob), TimeSpan.FromSeconds(Program.Settings.BalanceUpdateTimerInSeconds), _logger, DoTime);
         }
 
@@ -63,6 +66,7 @@ namespace Service.WalletObserver.Jobs
                             MinBalanceInUsd = 0m
                         };
                     }
+                    _internalWalletObserverMetrics.SetMetrics(newBalance);
                     await _internalWalletStorage.SaveWallet(newBalance);
                 }
             }

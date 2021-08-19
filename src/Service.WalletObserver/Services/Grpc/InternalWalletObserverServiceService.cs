@@ -1,14 +1,12 @@
 ﻿using System;
-using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Microsoft.Net.Http.Headers;
 using Newtonsoft.Json;
 using Service.WalletObserver.Domain.Models;
 using Service.WalletObserver.Grpc;
 using Service.WalletObserver.Grpc.Models;
 
-namespace Service.WalletObserver.Services
+namespace Service.WalletObserver.Services.Grpc
 {
     public class InternalWalletObserverServiceService: IInternalWalletObserverService
     {

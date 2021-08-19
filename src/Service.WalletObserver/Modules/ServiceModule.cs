@@ -28,6 +28,11 @@ namespace Service.WalletObserver.Modules
             builder
                 .RegisterType<InternalWalletObserverMath>()
                 .AsSelf();
+            
+            builder
+                .RegisterType<InternalWalletObserverMetrics>()
+                .AsSelf()
+                .SingleInstance();
         }
     }
 }
