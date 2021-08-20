@@ -25,7 +25,7 @@ namespace Service.WalletObserver.Services.Grpc
             _logger.LogInformation($"AddNewWalletAsync receive request: {JsonConvert.SerializeObject(request)}");
             try
             {
-                var balance = await _internalWalletStorage.GetWalletBalanceAsync(request.WalletName, request.Asset);
+                var balance = await _internalWalletStorage.GetWalletBalanceAsync(request.WalletId, request.Asset);
 
                 if (balance != null)
                 {
@@ -37,7 +37,10 @@ namespace Service.WalletObserver.Services.Grpc
                     {
                         Asset = request.Asset,
                         WalletName = request.WalletName,
-                        MinBalanceInUsd = request.MinBalanceInUsd
+                        MinBalanceInUsd = request.MinBalanceInUsd,
+                        AccountId = request.AccountId,
+                        WalletId = request.WalletId,
+                        BrokerId = request.BrokerId
                     };
                 }
                 
