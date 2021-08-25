@@ -42,25 +42,25 @@ namespace Service.WalletObserver.Services
             return _walletBalances;
         }
         
-        public async Task<List<InternalWalletBalance>> GetWalletBalanceAsync(string walletName)
+        public async Task<List<InternalWalletBalance>> GetWalletBalanceAsync(string walletId)
         {
             if (!_walletBalances.Any())
             {
                 await ReloadSettings();
             }
-            return _walletBalances.Where(e => e.WalletId == walletName).ToList();
+            return _walletBalances.Where(e => e.WalletId == walletId).ToList();
         }
         
-        public async Task<InternalWalletBalance> GetWalletBalanceAsync(string walletName, string asset)
+        public async Task<InternalWalletBalance> GetWalletBalanceAsync(string walletId, string asset)
         {
-            if (string.IsNullOrWhiteSpace(walletName) || string.IsNullOrWhiteSpace(asset))
+            if (string.IsNullOrWhiteSpace(walletId) || string.IsNullOrWhiteSpace(asset))
                 return null;
             
             if (!_walletBalances.Any())
             {
                 await ReloadSettings();
             }
-            return _walletBalances.FirstOrDefault(e => e.WalletName == walletName && e.Asset == asset);
+            return _walletBalances.FirstOrDefault(e => e.WalletId == walletId && e.Asset == asset);
         }
 
         public async Task RemoveWallet(string walletName)

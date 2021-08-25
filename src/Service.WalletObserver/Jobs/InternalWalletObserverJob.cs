@@ -40,7 +40,12 @@ namespace Service.WalletObserver.Jobs
 
             foreach (var walletName in walletInNoSql.Select(e => e.WalletName).Distinct())
             {
-                var actualBalances = await _internalWalletObserverMath.GetInternalWalletBalanceCollection(walletName);
+                var walletId = walletInNoSql.FirstOrDefault(e => e.WalletName == walletName)?.WalletId;
+                
+                if (string.IsNullOrWhiteSpace(walletId))
+                    continue;
+
+                var actualBalances = await _internalWalletObserverMath.GetInternalWalletBalanceCollection(walletId);
 
                 foreach (var actualBalance in actualBalances)
                 {
