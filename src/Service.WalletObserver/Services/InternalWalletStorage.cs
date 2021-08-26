@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Autofac;
+using Elasticsearch.Net.Specification.SnapshotApi;
 using Microsoft.Extensions.Logging;
 using MyNoSqlServer.Abstractions;
 using Newtonsoft.Json;
@@ -13,6 +14,7 @@ namespace Service.WalletObserver.Services
     {
         private readonly ILogger<InternalWalletStorage> _logger;
         private readonly IMyNoSqlServerDataWriter<InternalWalletNoSql> _dataWriter;
+        private readonly object _locker = new object();
 
         private List<InternalWalletBalance> _walletBalances = new List<InternalWalletBalance>();
         
@@ -23,59 +25,52 @@ namespace Service.WalletObserver.Services
             _logger = logger;
         }
 
-        public async Task SaveWallet(InternalWalletBalance walletBalance)
+        public async Task SaveWallet(List<InternalWalletBalance> snapshot)
         {
-            await _dataWriter.InsertOrReplaceAsync(InternalWalletNoSql.Create(walletBalance));
+            await _dataWriter.CleanAndBulkInsertAsync(snapshot.Select(InternalWalletNoSql.Create));
 
-            await ReloadSettings();
-
-            _logger.LogInformation("Updated InternalWallet: {jsonText}",
-                JsonConvert.SerializeObject(walletBalance));
-        }
-        
-        public async Task<List<InternalWalletBalance>> GetWalletsAsync()
-        {
-            if (!_walletBalances.Any())
-            {
-                await ReloadSettings();
-            }
-            return _walletBalances;
-        }
-        
-        public async Task<List<InternalWalletBalance>> GetWalletBalanceAsync(string walletId)
-        {
-            if (!_walletBalances.Any())
-            {
-                await ReloadSettings();
-            }
-            return _walletBalances.Where(e => e.WalletId == walletId).ToList();
-        }
-        
-        public async Task<InternalWalletBalance> GetWalletBalanceAsync(string walletId, string asset)
-        {
-            if (string.IsNullOrWhiteSpace(walletId) || string.IsNullOrWhiteSpace(asset))
-                return null;
+            _logger.LogInformation("Updated InternalWallets: {jsonText}",
+                JsonConvert.SerializeObject(snapshot));
             
+            await ReloadSettings();
+        }
+
+        public async Task<List<InternalWalletBalance>> GetWalletsSnapshot()
+        {
             if (!_walletBalances.Any())
             {
                 await ReloadSettings();
             }
-            return _walletBalances.FirstOrDefault(e => e.WalletId == walletId && e.Asset == asset);
+
+            lock (_locker)
+            {
+                var snapshot = _walletBalances.Select(e => e.GetCopy()).ToList();
+                return snapshot;
+            }
+        }
+
+        public void UpsertBalance(InternalWalletBalance balance)
+        {
+            lock (_locker)
+            {
+                var elem = _walletBalances.FirstOrDefault(e => e.WalletId == balance.WalletId);
+                if (elem != null)
+                {
+                    elem = balance;
+                }
+                else
+                {
+                    _walletBalances.Add(balance);
+                }
+            }
         }
 
         public async Task RemoveWallet(string walletName)
         {
-            var walletBalances = _walletBalances.Where(e => e.WalletName == walletName).ToList();
-            
-            if (walletBalances.Any())
+            lock (_locker)
             {
-                foreach (var walletBalance in walletBalances)
-                {
-                    var noSqlEntity = InternalWalletNoSql.Create(new InternalWalletBalance() {WalletName = walletName, Asset = walletBalance.Asset});
-                    await _dataWriter.DeleteAsync(noSqlEntity.PartitionKey, noSqlEntity.RowKey);
-                }
+                _walletBalances.RemoveAll(e => e.WalletName == walletName);
                 _logger.LogInformation("Removed wallet with name: {jsonText}", walletName);
-                await ReloadSettings();
             }
         }
         
@@ -84,7 +79,10 @@ namespace Service.WalletObserver.Services
             var wallets = (await _dataWriter.GetAsync()).ToList();
             var walletMap = new List<InternalWalletBalance>();
             walletMap.AddRange(wallets.Select(e=> e.WalletBalance));
-            _walletBalances = walletMap;
+            lock (_locker)
+            {
+                _walletBalances = walletMap;
+            }
         }
 
         public void Start()

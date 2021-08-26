@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Autofac;
@@ -36,20 +37,21 @@ namespace Service.WalletObserver.Jobs
 
         private async Task UpdateWalletBalances()
         {
-            var walletInNoSql = await _internalWalletStorage.GetWalletsAsync();
+            var balanceSnapshot = await _internalWalletStorage.GetWalletsSnapshot();
 
-            foreach (var walletName in walletInNoSql.Select(e => e.WalletName).Distinct())
+            foreach (var walletName in balanceSnapshot.Select(e => e.WalletName).Distinct())
             {
-                var walletId = walletInNoSql.FirstOrDefault(e => e.WalletName == walletName)?.WalletId;
+                var walletId = balanceSnapshot.FirstOrDefault(e => e.WalletName == walletName)?.WalletId;
                 
                 if (string.IsNullOrWhiteSpace(walletId))
                     continue;
 
                 var actualBalances = await _internalWalletObserverMath.GetInternalWalletBalanceCollection(walletId);
-
+                var newBalances = new List<InternalWalletBalance>();
+                
                 foreach (var actualBalance in actualBalances)
                 {
-                    var lastBalance = walletInNoSql.FirstOrDefault(e =>
+                    var lastBalance = balanceSnapshot.FirstOrDefault(e =>
                         e.WalletName == walletName && e.Asset == actualBalance.Asset);
 
                     InternalWalletBalance newBalance;
@@ -72,8 +74,9 @@ namespace Service.WalletObserver.Jobs
                         };
                     }
                     _internalWalletObserverMetrics.SetMetrics(newBalance);
-                    await _internalWalletStorage.SaveWallet(newBalance);
+                    newBalances.Add(newBalance);
                 }
+                await _internalWalletStorage.SaveWallet(newBalances);
             }
         }
 

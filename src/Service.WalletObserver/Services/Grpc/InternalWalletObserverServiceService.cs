@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -25,8 +26,9 @@ namespace Service.WalletObserver.Services.Grpc
             _logger.LogInformation($"AddNewWalletAsync receive request: {JsonConvert.SerializeObject(request)}");
             try
             {
-                var balance = await _internalWalletStorage.GetWalletBalanceAsync(request.WalletId, request.Asset);
-
+                var snapshot = await _internalWalletStorage.GetWalletsSnapshot();
+                var balance =  snapshot.FirstOrDefault(e => e.WalletId == request.WalletId && e.Asset == request.Asset);
+                
                 if (balance != null)
                 {
                     balance.MinBalanceInUsd = request.MinBalanceInUsd;
@@ -43,8 +45,7 @@ namespace Service.WalletObserver.Services.Grpc
                         BrokerId = request.BrokerId
                     };
                 }
-                
-                await _internalWalletStorage.SaveWallet(balance);
+                _internalWalletStorage.UpsertBalance(balance);
             } 
             catch (Exception ex)
             {
@@ -68,7 +69,7 @@ namespace Service.WalletObserver.Services.Grpc
             var response = new GetWalletsResponse();
             try
             {
-                response.WalletList = await _internalWalletStorage.GetWalletsAsync();
+                response.WalletList = await _internalWalletStorage.GetWalletsSnapshot();
                 response.Success = true;
             } 
             catch (Exception ex)
