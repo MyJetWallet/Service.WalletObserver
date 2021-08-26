@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Autofac;
-using Elasticsearch.Net.Specification.SnapshotApi;
 using Microsoft.Extensions.Logging;
 using MyNoSqlServer.Abstractions;
 using Newtonsoft.Json;
@@ -17,6 +16,7 @@ namespace Service.WalletObserver.Services
         private readonly object _locker = new object();
 
         private List<InternalWalletBalance> _walletBalances = new List<InternalWalletBalance>();
+        private List<(string, string)> _firingList = new List<(string, string)>();
         
         public InternalWalletStorage(IMyNoSqlServerDataWriter<InternalWalletNoSql> dataWriter,
             ILogger<InternalWalletStorage> logger)
@@ -27,12 +27,27 @@ namespace Service.WalletObserver.Services
 
         public async Task SaveWallet(List<InternalWalletBalance> snapshot)
         {
-            await _dataWriter.CleanAndBulkInsertAsync(snapshot.Select(InternalWalletNoSql.Create));
+            RemoveFiringList();
+            await _dataWriter.BulkInsertOrReplaceAsync(snapshot.Select(InternalWalletNoSql.Create));
 
             _logger.LogInformation("Updated InternalWallets: {jsonText}",
                 JsonConvert.SerializeObject(snapshot));
             
             await ReloadSettings();
+        }
+
+        private void RemoveFiringList()
+        {
+            List<(string, string)> firingListCopy;
+            lock (_locker)
+            {
+                firingListCopy = _firingList.Select(e => (new string(e.Item1), new string(e.Item2))).ToList();
+                _firingList.Clear();
+            }
+            firingListCopy.ForEach(async e =>
+            {
+                await _dataWriter.DeleteAsync(e.Item1, e.Item2);
+            });
         }
 
         public async Task<List<InternalWalletBalance>> GetWalletsSnapshot()
@@ -69,6 +84,7 @@ namespace Service.WalletObserver.Services
         {
             lock (_locker)
             {
+                _firingList.AddRange(_walletBalances.Where(e => e.WalletName == walletName).Select(e => (e.WalletId, e.Asset)));
                 _walletBalances.RemoveAll(e => e.WalletName == walletName);
                 _logger.LogInformation("Removed wallet with name: {jsonText}", walletName);
             }

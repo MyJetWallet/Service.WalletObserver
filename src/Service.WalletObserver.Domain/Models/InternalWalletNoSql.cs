@@ -5,7 +5,7 @@ namespace Service.WalletObserver.Domain.Models
     public class InternalWalletNoSql : MyNoSqlDbEntity
     {
         public const string TableName = "jetwallet-liquidity-internalwallets";
-        private static string GeneratePartitionKey(string wallet) => $"wallet : {wallet}";
+        private static string GeneratePartitionKey(string walletId) => $"walletId : {walletId}";
         private static string GenerateRowKey(string asset) => $"asset : {asset}";
         public InternalWalletBalance WalletBalance { get; set; }
         
@@ -13,7 +13,7 @@ namespace Service.WalletObserver.Domain.Models
         {
             return new()
             {
-                PartitionKey = GeneratePartitionKey(walletBalance.WalletName),
+                PartitionKey = GeneratePartitionKey(walletBalance.WalletId),
                 RowKey = GenerateRowKey(walletBalance.Asset),
                 WalletBalance = walletBalance
             };
