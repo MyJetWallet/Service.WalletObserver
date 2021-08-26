@@ -39,16 +39,16 @@ namespace Service.WalletObserver.Jobs
         {
             var balanceSnapshot = await _internalWalletStorage.GetWalletsSnapshot();
 
+            var newBalances = new List<InternalWalletBalance>();
             foreach (var walletName in balanceSnapshot.Select(e => e.WalletName).Distinct())
             {
-                var walletId = balanceSnapshot.FirstOrDefault(e => e.WalletName == walletName)?.WalletId;
+                var wallet = balanceSnapshot.FirstOrDefault(e => e.WalletName == walletName);
                 
-                if (string.IsNullOrWhiteSpace(walletId))
+                if (string.IsNullOrWhiteSpace(wallet?.WalletId))
                     continue;
 
-                var actualBalances = await _internalWalletObserverMath.GetInternalWalletBalanceCollection(walletId);
-                var newBalances = new List<InternalWalletBalance>();
-                
+                var actualBalances = await _internalWalletObserverMath.GetInternalWalletBalanceCollection(wallet.WalletId);
+
                 foreach (var actualBalance in actualBalances)
                 {
                     var lastBalance = balanceSnapshot.FirstOrDefault(e =>
@@ -68,6 +68,9 @@ namespace Service.WalletObserver.Jobs
                         {
                             Asset = actualBalance.Asset,
                             WalletName = walletName,
+                            WalletId = wallet.WalletId,
+                            BrokerId = wallet.BrokerId,
+                            AccountId = wallet.AccountId,
                             UsdVolume = actualBalance.UsdVolume,
                             Volume = actualBalance.Volume,
                             MinBalanceInUsd = 0m
@@ -76,8 +79,8 @@ namespace Service.WalletObserver.Jobs
                     _internalWalletObserverMetrics.SetMetrics(newBalance);
                     newBalances.Add(newBalance);
                 }
-                await _internalWalletStorage.SaveWallet(newBalances);
             }
+            await _internalWalletStorage.SaveWallet(newBalances);
         }
 
         public void Start()

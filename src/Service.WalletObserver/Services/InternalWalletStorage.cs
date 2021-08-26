@@ -27,6 +27,7 @@ namespace Service.WalletObserver.Services
 
         public async Task SaveWallet(List<InternalWalletBalance> snapshot)
         {
+            ClearCollection(snapshot);
             RemoveFiringList();
             await _dataWriter.BulkInsertOrReplaceAsync(snapshot.Select(InternalWalletNoSql.Create));
 
@@ -34,6 +35,14 @@ namespace Service.WalletObserver.Services
                 JsonConvert.SerializeObject(snapshot));
             
             await ReloadSettings();
+        }
+
+        private void ClearCollection(List<InternalWalletBalance> snapshot)
+        {
+            snapshot.RemoveAll(e => string.IsNullOrWhiteSpace(e.Asset) &&
+                                    string.IsNullOrWhiteSpace(e.WalletId) &&
+                                    string.IsNullOrWhiteSpace(e.WalletName) &&
+                                    string.IsNullOrWhiteSpace(e.BrokerId));
         }
 
         private void RemoveFiringList()
@@ -68,14 +77,14 @@ namespace Service.WalletObserver.Services
         {
             lock (_locker)
             {
-                var elem = _walletBalances.FirstOrDefault(e => e.WalletId == balance.WalletId);
-                if (elem != null)
+                var elem = _walletBalances.FirstOrDefault(e => e.WalletId == balance.WalletId && e.Asset == balance.Asset);
+                if (elem == null)
                 {
-                    elem = balance;
+                    _walletBalances.Add(balance);
                 }
                 else
                 {
-                    _walletBalances.Add(balance);
+                    elem.MinBalanceInUsd = balance.MinBalanceInUsd;
                 }
             }
         }
