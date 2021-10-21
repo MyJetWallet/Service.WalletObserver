@@ -87,6 +87,7 @@ namespace Service.WalletObserver.Services
                     elem.MinBalanceInUsd = balance.MinBalanceInUsd;
                 }
             }
+            SaveWallet(_walletBalances).GetAwaiter().GetResult();
         }
 
         public async Task RemoveWallet(string walletName)
