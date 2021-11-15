@@ -90,7 +90,7 @@ namespace Service.WalletObserver.Services
             SaveWallet(_walletBalances).GetAwaiter().GetResult();
         }
 
-        public async Task RemoveWallet(string walletName)
+        public Task RemoveWallet(string walletName)
         {
             lock (_locker)
             {
@@ -98,6 +98,8 @@ namespace Service.WalletObserver.Services
                 _walletBalances.RemoveAll(e => e.WalletName == walletName);
                 _logger.LogInformation("Removed wallet with name: {jsonText}", walletName);
             }
+            
+            return Task.CompletedTask;
         }
         
         private async Task ReloadSettings()
