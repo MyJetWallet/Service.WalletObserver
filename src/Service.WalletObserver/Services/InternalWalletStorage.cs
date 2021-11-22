@@ -31,8 +31,7 @@ namespace Service.WalletObserver.Services
             RemoveFiringList();
             await _dataWriter.BulkInsertOrReplaceAsync(snapshot.Select(InternalWalletNoSql.Create));
 
-            _logger.LogInformation("Updated InternalWallets: {jsonText}",
-                JsonConvert.SerializeObject(snapshot));
+            _logger.LogInformation("Updated InternalWallets count: {count}", snapshot.Count);
             
             await ReloadSettings();
         }
