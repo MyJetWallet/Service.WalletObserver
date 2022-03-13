@@ -47,37 +47,47 @@ namespace Service.WalletObserver.Jobs
                 if (string.IsNullOrWhiteSpace(wallet?.WalletId))
                     continue;
 
-                var actualBalances = await _internalWalletObserverMath.GetInternalWalletBalanceCollection(wallet.WalletId);
-
-                foreach (var actualBalance in actualBalances)
+                try
                 {
-                    var lastBalance = balanceSnapshot.FirstOrDefault(e =>
-                        e.WalletName == walletName && e.Asset == actualBalance.Asset);
+                    var actualBalances =
+                        await _internalWalletObserverMath.GetInternalWalletBalanceCollection(wallet.WalletId);
 
-                    InternalWalletBalance newBalance;
-                    
-                    if (lastBalance != null)
+                    foreach (var actualBalance in actualBalances)
                     {
-                        newBalance = lastBalance;
-                        newBalance.Volume = actualBalance.Volume;
-                        newBalance.UsdVolume = actualBalance.UsdVolume;
-                    }
-                    else
-                    {
-                        newBalance = new InternalWalletBalance()
+                        var lastBalance = balanceSnapshot.FirstOrDefault(e =>
+                            e.WalletName == walletName && e.Asset == actualBalance.Asset);
+
+                        InternalWalletBalance newBalance;
+
+                        if (lastBalance != null)
                         {
-                            Asset = actualBalance.Asset,
-                            WalletName = walletName,
-                            WalletId = wallet.WalletId,
-                            BrokerId = wallet.BrokerId,
-                            AccountId = wallet.AccountId,
-                            UsdVolume = actualBalance.UsdVolume,
-                            Volume = actualBalance.Volume,
-                            MinBalanceInUsd = 0m
-                        };
+                            newBalance = lastBalance;
+                            newBalance.Volume = actualBalance.Volume;
+                            newBalance.UsdVolume = actualBalance.UsdVolume;
+                        }
+                        else
+                        {
+                            newBalance = new InternalWalletBalance()
+                            {
+                                Asset = actualBalance.Asset,
+                                WalletName = walletName,
+                                WalletId = wallet.WalletId,
+                                BrokerId = wallet.BrokerId,
+                                AccountId = wallet.AccountId,
+                                UsdVolume = actualBalance.UsdVolume,
+                                Volume = actualBalance.Volume,
+                                MinBalanceInUsd = 0m
+                            };
+                        }
+
+                        _internalWalletObserverMetrics.SetMetrics(newBalance);
+                        newBalances.Add(newBalance);
                     }
-                    _internalWalletObserverMetrics.SetMetrics(newBalance);
-                    newBalances.Add(newBalance);
+                }
+                catch (Exception e)
+                {
+                    _logger.LogWarning(e, $"Cannot get balance of {wallet.WalletId} wallet");
+                    throw;
                 }
             }
             await _internalWalletStorage.SaveWallet(newBalances);
