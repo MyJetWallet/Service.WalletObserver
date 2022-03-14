@@ -87,7 +87,6 @@ namespace Service.WalletObserver.Jobs
                 catch (Exception e)
                 {
                     _logger.LogWarning(e, $"Cannot get balance of {wallet.WalletId} wallet");
-                    throw;
                 }
             }
             await _internalWalletStorage.SaveWallet(newBalances);
