@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Autofac;
 using Microsoft.Extensions.Logging;
 using MyJetWallet.Sdk.Service.Tools;
+using Service.Liquidity.Converter.Grpc;
 using Service.WalletObserver.Domain.Models;
 using Service.WalletObserver.Services;
 
@@ -17,21 +18,27 @@ namespace Service.WalletObserver.Jobs
         private readonly InternalWalletStorage _internalWalletStorage;
         private readonly InternalWalletObserverMath _internalWalletObserverMath;
         private readonly InternalWalletObserverMetrics _internalWalletObserverMetrics;
+        private readonly ILiquidityConverterSettingsManager _converterSettingsManager;
 
         public InternalWalletObserverJob(ILogger<InternalWalletObserverJob> logger,
             InternalWalletStorage internalWalletStorage,
             InternalWalletObserverMath internalWalletObserverMath,
-            InternalWalletObserverMetrics internalWalletObserverMetrics)
+            InternalWalletObserverMetrics internalWalletObserverMetrics,
+            ILiquidityConverterSettingsManager converterSettingsManager
+            )
         {
             _logger = logger;
             _internalWalletStorage = internalWalletStorage;
             _internalWalletObserverMath = internalWalletObserverMath;
             _internalWalletObserverMetrics = internalWalletObserverMetrics;
-            _timer = new MyTaskTimer(nameof(InternalWalletObserverJob), TimeSpan.FromSeconds(Program.Settings.BalanceUpdateTimerInSeconds), _logger, DoTime);
+            _converterSettingsManager = converterSettingsManager;
+            _timer = new MyTaskTimer(nameof(InternalWalletObserverJob),
+                TimeSpan.FromSeconds(Program.Settings.BalanceUpdateTimerInSeconds), _logger, DoTime);
         }
 
         private async Task DoTime()
         {
+            await UpdateWalletsTypesAsync();
             await UpdateWalletBalances();
         }
 
@@ -67,7 +74,7 @@ namespace Service.WalletObserver.Jobs
                         }
                         else
                         {
-                            newBalance = new InternalWalletBalance()
+                            newBalance = new InternalWalletBalance
                             {
                                 Asset = actualBalance.Asset,
                                 WalletName = walletName,
@@ -95,6 +102,59 @@ namespace Service.WalletObserver.Jobs
         public void Start()
         {
             _timer.Start();
+        }
+
+        private async Task UpdateWalletsTypesAsync()
+        {
+            try
+            {
+                var wallets = await _internalWalletStorage.GetWalletsSnapshot();
+                var converterWalletIds = new HashSet<string>();
+            
+                try
+                {
+                    converterWalletIds = _converterSettingsManager
+                        .GetLiquidityConverterSettingsAsync()?.Settings?
+                        .Select(s => s.BrokerWalletId)
+                        .ToHashSet() ?? new HashSet<string>();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Can't update converter wallet type. Failed to get converter wallets. {@ExMess}", ex.Message);
+                }
+
+                foreach (var wallet in wallets)
+                {
+                    SetWalletTypes(wallet, converterWalletIds);
+                }
+                
+                await _internalWalletStorage.SaveWallet(wallets);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update wallets types. {@ExMess}", ex.Message);
+            }
+        }
+
+        private void SetWalletTypes(InternalWalletBalance wallet, IReadOnlySet<string> converterWalletIds)
+        {
+            try
+            {
+                if (Program.Settings.BonusServiceWalletId == wallet.WalletId)
+                {
+                    wallet.WalletTypes |= InternalWalletTypes.Bonus;
+                }
+
+                if (converterWalletIds.Contains(wallet.WalletId))
+                {
+                    wallet.WalletTypes |= InternalWalletTypes.Converter;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to update wallet types for {@WalletId}. {@ExMessage}", wallet.WalletId,
+                    ex.Message);
+            }
         }
     }
 }

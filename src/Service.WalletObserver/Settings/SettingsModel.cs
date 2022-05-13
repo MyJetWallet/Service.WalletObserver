@@ -25,5 +25,11 @@ namespace Service.WalletObserver.Settings
 
         [YamlProperty("WalletObserver.BalanceUpdateTimerInSeconds")]
         public int BalanceUpdateTimerInSeconds { get; set; }
+        
+        [YamlProperty("WalletObserver.LiquidityConverterGrpcServiceUrl")]
+        public string LiquidityConverterGrpcServiceUrl { get; set; }
+        
+        [YamlProperty("WalletObserver.BonusServiceWalletId")]
+        public string BonusServiceWalletId { get; set; }
     }
 }
