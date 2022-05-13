@@ -38,7 +38,6 @@ namespace Service.WalletObserver.Jobs
 
         private async Task DoTime()
         {
-            await UpdateWalletsTypesAsync();
             await UpdateWalletBalances();
         }
 
@@ -97,6 +96,8 @@ namespace Service.WalletObserver.Jobs
                     _logger.LogWarning(e, $"Cannot get balance of {wallet.WalletId} wallet");
                 }
             }
+
+            await SetWalletsTypesAsync(newBalances);
             await _internalWalletStorage.SaveWallet(newBalances);
         }
 
@@ -105,11 +106,10 @@ namespace Service.WalletObserver.Jobs
             _timer.Start();
         }
 
-        private async Task UpdateWalletsTypesAsync()
+        private Task SetWalletsTypesAsync(ICollection<InternalWalletBalance> walletBalances)
         {
             try
             {
-                var wallets = await _internalWalletStorage.GetWalletsSnapshot();
                 var converterWalletIds = new HashSet<string>();
             
                 try
@@ -124,17 +124,17 @@ namespace Service.WalletObserver.Jobs
                     _logger.LogError(ex, "Can't update converter wallet type. Failed to get converter wallets. {@ExMess}", ex.Message);
                 }
 
-                foreach (var wallet in wallets)
+                foreach (var wallet in walletBalances)
                 {
                     SetWalletTypes(wallet, converterWalletIds);
                 }
-                
-                await _internalWalletStorage.SaveWallet(wallets);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to update wallets types. {@ExMess}", ex.Message);
             }
+            
+            return Task.CompletedTask;
         }
 
         private void SetWalletTypes(InternalWalletBalance wallet, IReadOnlySet<string> converterWalletIds)
