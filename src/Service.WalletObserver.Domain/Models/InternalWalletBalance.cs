@@ -27,7 +27,8 @@ namespace Service.WalletObserver.Domain.Models
                 Asset = Asset,
                 Volume = Volume,
                 UsdVolume = UsdVolume,
-                MinBalanceInUsd = MinBalanceInUsd
+                MinBalanceInUsd = MinBalanceInUsd,
+                WalletTypes = WalletTypes
             };
         }
     }
