@@ -45,8 +45,8 @@ namespace Service.WalletObserver.Jobs
         private async Task UpdateWalletBalances()
         {
             var balanceSnapshot = await _internalWalletStorage.GetWalletsSnapshot();
-
             var newBalances = new List<InternalWalletBalance>();
+            
             foreach (var walletName in balanceSnapshot.Select(e => e.WalletName).Distinct())
             {
                 var wallet = balanceSnapshot.FirstOrDefault(e => e.WalletName == walletName);
@@ -83,7 +83,8 @@ namespace Service.WalletObserver.Jobs
                                 AccountId = wallet.AccountId,
                                 UsdVolume = actualBalance.UsdVolume,
                                 Volume = actualBalance.Volume,
-                                MinBalanceInUsd = 0m
+                                MinBalanceInUsd = 0m,
+                                WalletTypes = wallet.WalletTypes
                             };
                         }
 
