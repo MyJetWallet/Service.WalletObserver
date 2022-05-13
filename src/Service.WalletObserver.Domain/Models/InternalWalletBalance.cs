@@ -14,6 +14,7 @@ namespace Service.WalletObserver.Domain.Models
         [DataMember(Order = 6)] public decimal Volume { get; set; }
         [DataMember(Order = 7)] public decimal UsdVolume { get; set; }
         [DataMember(Order = 8)] public decimal MinBalanceInUsd { get; set; }
+        [DataMember(Order = 9)] public InternalWalletTypes WalletTypes { get; set; }
 
         public InternalWalletBalance GetCopy()
         {
