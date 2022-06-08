@@ -97,8 +97,11 @@ namespace Service.WalletObserver.Jobs
                 }
             }
 
-            await SetWalletsTypesAsync(newBalances);
-            await _internalWalletStorage.SaveWallet(newBalances);
+            if (newBalances.Any())
+            {
+                await SetWalletsTypesAsync(newBalances);
+                await _internalWalletStorage.SaveWallet(newBalances);
+            }
         }
 
         public void Start()
