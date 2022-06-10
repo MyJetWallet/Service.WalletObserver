@@ -15,7 +15,6 @@ namespace Service.WalletObserver.Modules
             builder
                 .RegisterType<InternalWalletStorage>()
                 .AsSelf()
-                .As<IStartable>()
                 .AutoActivate()
                 .SingleInstance();
             
