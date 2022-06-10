@@ -1,120 +1,85 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Autofac;
 using Microsoft.Extensions.Logging;
 using MyNoSqlServer.Abstractions;
-using Newtonsoft.Json;
 using Service.WalletObserver.Domain.Models;
 
 namespace Service.WalletObserver.Services
 {
-    public class InternalWalletStorage : IStartable
+    public class InternalWalletStorage
     {
         private readonly ILogger<InternalWalletStorage> _logger;
         private readonly IMyNoSqlServerDataWriter<InternalWalletNoSql> _dataWriter;
-        private readonly object _locker = new object();
-
         private List<InternalWalletBalance> _walletBalances = new List<InternalWalletBalance>();
-        private List<(string, string)> _firingList = new List<(string, string)>();
-        
-        public InternalWalletStorage(IMyNoSqlServerDataWriter<InternalWalletNoSql> dataWriter,
-            ILogger<InternalWalletStorage> logger)
+
+        public InternalWalletStorage(
+            IMyNoSqlServerDataWriter<InternalWalletNoSql> dataWriter,
+            ILogger<InternalWalletStorage> logger
+        )
         {
             _dataWriter = dataWriter;
             _logger = logger;
         }
 
-        public async Task SaveWallet(List<InternalWalletBalance> snapshot)
+        public async Task SaveBalancesAsync(IEnumerable<InternalWalletBalance> balances)
         {
-            ClearCollection(snapshot);
-            RemoveFiringList();
-            await _dataWriter.BulkInsertOrReplaceAsync(snapshot.Select(InternalWalletNoSql.Create).ToList());
+            var cleared = ClearEmpty(balances).ToArray();
+            await _dataWriter.BulkInsertOrReplaceAsync(cleared.Select(InternalWalletNoSql.Create).ToList());
 
-            _logger.LogInformation("Updated InternalWallets count: {count}", snapshot.Count);
-            
-            await ReloadSettings();
+            _logger.LogInformation("Updated InternalWallets count: {@Count}", cleared.Length);
+
+            await ReloadAsync();
         }
 
-        private void ClearCollection(List<InternalWalletBalance> snapshot)
+        public async Task<List<InternalWalletBalance>> GetWalletsAsync()
         {
-            snapshot.RemoveAll(e => string.IsNullOrWhiteSpace(e.Asset) &&
-                                    string.IsNullOrWhiteSpace(e.WalletId) &&
-                                    string.IsNullOrWhiteSpace(e.WalletName) &&
-                                    string.IsNullOrWhiteSpace(e.BrokerId));
-        }
-
-        private void RemoveFiringList()
-        {
-            List<(string, string)> firingListCopy;
-            lock (_locker)
+            if (_walletBalances == null || !_walletBalances.Any())
             {
-                firingListCopy = _firingList.Select(e => (new string(e.Item1), new string(e.Item2))).ToList();
-                _firingList.Clear();
-            }
-            firingListCopy.ForEach(async e =>
-            {
-                await _dataWriter.DeleteAsync(e.Item1, e.Item2);
-            });
-        }
-
-        public async Task<List<InternalWalletBalance>> GetWalletsSnapshot()
-        {
-            if (!_walletBalances.Any())
-            {
-                await ReloadSettings();
+                await ReloadAsync();
             }
 
-            lock (_locker)
-            {
-                var snapshot = _walletBalances.Select(e => e.GetCopy()).ToList();
-                return snapshot;
-            }
+            var snapshot = _walletBalances.Select(e => e.GetCopy()).ToList();
+
+            return snapshot;
         }
 
-        public void UpsertBalance(InternalWalletBalance balance)
+        public async Task UpsertBalanceAsync(InternalWalletBalance balance)
         {
-            lock (_locker)
+            await _dataWriter.InsertOrReplaceAsync(InternalWalletNoSql.Create(balance));
+            await ReloadAsync();
+        }
+
+        public async Task RemoveBalancesAsync(string walletName)
+        {
+            var balances = _walletBalances
+                .Where(w => w.WalletName == walletName)
+                .ToArray();
+
+            if (balances.Any())
             {
-                var elem = _walletBalances.FirstOrDefault(e => e.WalletId == balance.WalletId && e.Asset == balance.Asset);
-                if (elem == null)
+                foreach (var balance in balances)
                 {
-                    _walletBalances.Add(balance);
-                }
-                else
-                {
-                    elem.MinBalanceInUsd = balance.MinBalanceInUsd;
+                    var noSql = InternalWalletNoSql.Create(balance);
+                    await _dataWriter.DeleteAsync(noSql.PartitionKey, noSql.RowKey);
                 }
             }
-            SaveWallet(_walletBalances).GetAwaiter().GetResult();
+
+            await ReloadAsync();
         }
 
-        public Task RemoveWallet(string walletName)
+        private async Task ReloadAsync()
         {
-            lock (_locker)
-            {
-                _firingList.AddRange(_walletBalances.Where(e => e.WalletName == walletName).Select(e => (e.WalletId, e.Asset)));
-                _walletBalances.RemoveAll(e => e.WalletName == walletName);
-                _logger.LogInformation("Removed wallet with name: {jsonText}", walletName);
-            }
-            
-            return Task.CompletedTask;
-        }
-        
-        private async Task ReloadSettings()
-        {
-            var wallets = (await _dataWriter.GetAsync()).ToList();
-            var walletMap = new List<InternalWalletBalance>();
-            walletMap.AddRange(wallets.Select(e=> e.WalletBalance));
-            lock (_locker)
-            {
-                _walletBalances = walletMap;
-            }
+            var noSqlWallets = await _dataWriter.GetAsync();
+            _walletBalances = new List<InternalWalletBalance>(noSqlWallets.Select(e => e.WalletBalance));
         }
 
-        public void Start()
+        private static IEnumerable<InternalWalletBalance> ClearEmpty(IEnumerable<InternalWalletBalance> snapshot)
         {
-            ReloadSettings().GetAwaiter().GetResult();
+            return snapshot.Where(e => string.IsNullOrWhiteSpace(e.Asset) &&
+                                       string.IsNullOrWhiteSpace(e.WalletId) &&
+                                       string.IsNullOrWhiteSpace(e.WalletName) &&
+                                       string.IsNullOrWhiteSpace(e.BrokerId));
         }
     }
 }

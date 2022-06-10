@@ -9,33 +9,36 @@ using Service.WalletObserver.Grpc.Models;
 
 namespace Service.WalletObserver.Services.Grpc
 {
-    public class InternalWalletObserverServiceService: IInternalWalletObserverService
+    public class InternalWalletObserverServiceService : IInternalWalletObserverService
     {
         private readonly ILogger<InternalWalletObserverServiceService> _logger;
         private readonly InternalWalletStorage _internalWalletStorage;
 
-        public InternalWalletObserverServiceService(ILogger<InternalWalletObserverServiceService> logger,
-            InternalWalletStorage internalWalletStorage)
+        public InternalWalletObserverServiceService(
+            ILogger<InternalWalletObserverServiceService> logger,
+            InternalWalletStorage internalWalletStorage
+        )
         {
             _logger = logger;
             _internalWalletStorage = internalWalletStorage;
         }
-        
+
         public async Task<AddNewWalletResponse> UpsertWalletAsync(AddNewWalletRequest request)
         {
-            _logger.LogInformation($"AddNewWalletAsync receive request: {JsonConvert.SerializeObject(request)}");
             try
             {
-                var snapshot = await _internalWalletStorage.GetWalletsSnapshot();
-                var balance =  snapshot.FirstOrDefault(e => e.WalletId == request.WalletId && e.Asset == request.Asset);
-                
+                _logger.LogInformation("AddNewWalletAsync receive request: {@Request}", request);
+
+                var snapshot = await _internalWalletStorage.GetWalletsAsync();
+                var balance = snapshot.FirstOrDefault(e => e.WalletId == request.WalletId && e.Asset == request.Asset);
+
                 if (balance != null)
                 {
                     balance.MinBalanceInUsd = request.MinBalanceInUsd;
                 }
                 else
                 {
-                    balance = new InternalWalletBalance()
+                    balance = new InternalWalletBalance
                     {
                         Asset = request.Asset,
                         WalletName = request.WalletName,
@@ -45,65 +48,71 @@ namespace Service.WalletObserver.Services.Grpc
                         BrokerId = request.BrokerId
                     };
                 }
-                _internalWalletStorage.UpsertBalance(balance);
-            } 
+
+                await _internalWalletStorage.UpsertBalanceAsync(balance);
+
+                return new AddNewWalletResponse
+                {
+                    Success = true
+                };
+            }
             catch (Exception ex)
             {
-                _logger.LogError($"AddNewWalletAsync throw exception: {JsonConvert.SerializeObject(ex)}");
-                return new AddNewWalletResponse()
+                _logger.LogError(ex, "AddNewWalletAsync throw exception: {@ExMessage}", ex.Message);
+                return new AddNewWalletResponse
                 {
                     Success = false,
                     ErrorMessage = ex.Message
                 };
             }
-            return new AddNewWalletResponse()
-            {
-                Success = true
-            };
         }
 
         public async Task<GetWalletsResponse> GetWalletsAsync()
         {
-            _logger.LogInformation($"GetWalletsAsync receive request.");
-
             var response = new GetWalletsResponse();
+
             try
             {
-                response.WalletList = await _internalWalletStorage.GetWalletsSnapshot();
+                _logger.LogInformation("GetWalletsAsync receive request");
+
+                response.WalletList = await _internalWalletStorage.GetWalletsAsync();
                 response.Success = true;
-            } 
+            }
             catch (Exception ex)
             {
-                _logger.LogError($"GetWalletsAsync throw exception: {JsonConvert.SerializeObject(ex)}");
-                return new GetWalletsResponse()
+                _logger.LogError(ex, "GetWalletsAsync throw exception: {@ExMess}", ex.Message);
+
+                return new GetWalletsResponse
                 {
                     Success = false,
                     ErrorMessage = ex.Message
                 };
             }
+
             return response;
         }
 
         public async Task<RemoveWalletResponse> RemoveWalletAsync(RemoveWalletRequest request)
         {
-            _logger.LogInformation($"RemoveWalletAsync receive request: {JsonConvert.SerializeObject(request)}");
             try
             {
-                await _internalWalletStorage.RemoveWallet(request.Name);
-            } 
+                _logger.LogInformation("RemoveWalletAsync receive request: {@Request}", request);
+
+                await _internalWalletStorage.RemoveBalancesAsync(request.Name);
+                return new RemoveWalletResponse
+                {
+                    Success = true
+                };
+            }
             catch (Exception ex)
             {
-                _logger.LogError($"RemoveWalletAsync throw exception: {JsonConvert.SerializeObject(ex)}");
-                return new RemoveWalletResponse()
+                _logger.LogError(ex, "RemoveWalletAsync throw exception: {@ExMess}", ex.Message);
+                return new RemoveWalletResponse
                 {
                     Success = false,
                     ErrorMessage = ex.Message
                 };
             }
-            return new RemoveWalletResponse()
-            {
-                Success = true
-            };
         }
     }
 }

@@ -43,7 +43,7 @@ namespace Service.WalletObserver.Jobs
 
         private async Task UpdateWalletBalances()
         {
-            var balanceSnapshot = await _internalWalletStorage.GetWalletsSnapshot();
+            var balanceSnapshot = await _internalWalletStorage.GetWalletsAsync();
             var newBalances = new List<InternalWalletBalance>();
             
             foreach (var walletName in balanceSnapshot.Select(e => e.WalletName).Distinct())
@@ -100,7 +100,7 @@ namespace Service.WalletObserver.Jobs
             if (newBalances.Any())
             {
                 await SetWalletsTypesAsync(newBalances);
-                await _internalWalletStorage.SaveWallet(newBalances);
+                await _internalWalletStorage.SaveBalancesAsync(newBalances);
             }
         }
 
