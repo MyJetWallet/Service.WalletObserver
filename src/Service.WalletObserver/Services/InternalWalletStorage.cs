@@ -25,11 +25,15 @@ namespace Service.WalletObserver.Services
         public async Task SaveBalancesAsync(IEnumerable<InternalWalletBalance> balances)
         {
             var cleared = ClearEmpty(balances).ToArray();
-            await _dataWriter.BulkInsertOrReplaceAsync(cleared.Select(InternalWalletNoSql.Create).ToList());
+            
+            if (cleared.Any())
+            {
+                await _dataWriter.BulkInsertOrReplaceAsync(cleared.Select(InternalWalletNoSql.Create).ToList());
 
-            _logger.LogInformation("Updated InternalWallets count: {@Count}", cleared.Length);
+                _logger.LogInformation("Updated InternalWallets count: {@Count}", cleared.Length);
 
-            await ReloadAsync();
+                await ReloadAsync();
+            }
         }
 
         public async Task<List<InternalWalletBalance>> GetWalletsAsync()
@@ -76,10 +80,10 @@ namespace Service.WalletObserver.Services
 
         private static IEnumerable<InternalWalletBalance> ClearEmpty(IEnumerable<InternalWalletBalance> snapshot)
         {
-            return snapshot.Where(e => string.IsNullOrWhiteSpace(e.Asset) &&
-                                       string.IsNullOrWhiteSpace(e.WalletId) &&
-                                       string.IsNullOrWhiteSpace(e.WalletName) &&
-                                       string.IsNullOrWhiteSpace(e.BrokerId));
+            return snapshot.Where(e => !string.IsNullOrWhiteSpace(e.Asset) &&
+                                       !string.IsNullOrWhiteSpace(e.WalletId) &&
+                                       !string.IsNullOrWhiteSpace(e.WalletName) &&
+                                       !string.IsNullOrWhiteSpace(e.BrokerId));
         }
     }
 }
