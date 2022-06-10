@@ -29,7 +29,7 @@ namespace Service.WalletObserver.Services
         {
             ClearCollection(snapshot);
             RemoveFiringList();
-            await _dataWriter.BulkInsertOrReplaceAsync(snapshot.Select(InternalWalletNoSql.Create));
+            await _dataWriter.BulkInsertOrReplaceAsync(snapshot.Select(InternalWalletNoSql.Create).ToList());
 
             _logger.LogInformation("Updated InternalWallets count: {count}", snapshot.Count);
             
