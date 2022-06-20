@@ -1,6 +1,7 @@
 using Autofac;
 using MyJetWallet.Sdk.NoSql;
 using Service.Balances.Client;
+using Service.HighYieldEngine.Client;
 using Service.IndexPrices.Client;
 using Service.Liquidity.Converter.Client;
 
@@ -15,6 +16,8 @@ namespace Service.WalletObserver.Modules
             builder.RegisterBalancesClientsWithoutCache(Program.Settings.BalancesGrpcServiceUrl);
             builder.RegisterIndexPricesClient(myNoSqlClient);
             builder.RegisterLiquidityConverterManagerClient(Program.Settings.LiquidityConverterGrpcServiceUrl);
+            builder.RegisterHighYieldEngineBackofficeService(Program.Settings.HighYieldEngineGrpcServiceUrl);
+
         }
     }
 }

@@ -31,5 +31,8 @@ namespace Service.WalletObserver.Settings
         
         [YamlProperty("WalletObserver.BonusServiceWalletId")]
         public string BonusServiceWalletId { get; set; }
+
+        [YamlProperty("WalletObserver.HighYieldEngineGrpcServiceUrl")]
+        public string HighYieldEngineGrpcServiceUrl { get; set; }
     }
 }

@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Autofac;
 using Microsoft.Extensions.Logging;
 using MyJetWallet.Sdk.Service.Tools;
+using Service.HighYieldEngine.Grpc;
 using Service.Liquidity.Converter.Grpc;
 using Service.WalletObserver.Domain.Models;
 using Service.WalletObserver.Services;
@@ -19,19 +20,22 @@ namespace Service.WalletObserver.Jobs
         private readonly InternalWalletObserverMath _internalWalletObserverMath;
         private readonly InternalWalletObserverMetrics _internalWalletObserverMetrics;
         private readonly ILiquidityConverterSettingsManager _converterSettingsManager;
+        private readonly IHighYieldEngineBackofficeService _highYieldService;
 
         public InternalWalletObserverJob(ILogger<InternalWalletObserverJob> logger,
             InternalWalletStorage internalWalletStorage,
             InternalWalletObserverMath internalWalletObserverMath,
             InternalWalletObserverMetrics internalWalletObserverMetrics,
-            ILiquidityConverterSettingsManager converterSettingsManager
-            )
+            ILiquidityConverterSettingsManager converterSettingsManager,
+            IHighYieldEngineBackofficeService highYieldService
+        )
         {
             _logger = logger;
             _internalWalletStorage = internalWalletStorage;
             _internalWalletObserverMath = internalWalletObserverMath;
             _internalWalletObserverMetrics = internalWalletObserverMetrics;
             _converterSettingsManager = converterSettingsManager;
+            _highYieldService = highYieldService;
             _timer = new MyTaskTimer(nameof(InternalWalletObserverJob),
                 TimeSpan.FromSeconds(Program.Settings.BalanceUpdateTimerInSeconds), _logger, DoTime);
         }
@@ -45,11 +49,11 @@ namespace Service.WalletObserver.Jobs
         {
             var balanceSnapshot = await _internalWalletStorage.GetWalletsAsync();
             var newBalances = new List<InternalWalletBalance>();
-            
+
             foreach (var walletName in balanceSnapshot.Select(e => e.WalletName).Distinct())
             {
                 var wallet = balanceSnapshot.FirstOrDefault(e => e.WalletName == walletName);
-                
+
                 if (string.IsNullOrWhiteSpace(wallet?.WalletId))
                     continue;
 
@@ -109,55 +113,67 @@ namespace Service.WalletObserver.Jobs
             _timer.Start();
         }
 
-        private Task SetWalletsTypesAsync(ICollection<InternalWalletBalance> walletBalances)
+        private async Task SetWalletsTypesAsync(ICollection<InternalWalletBalance> walletBalances)
         {
             try
             {
-                var converterWalletIds = new HashSet<string>();
-            
-                try
-                {
-                    converterWalletIds = _converterSettingsManager
-                        .GetLiquidityConverterSettingsAsync()?.Settings?
-                        .Select(s => s.BrokerWalletId)
-                        .ToHashSet() ?? new HashSet<string>();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Can't update converter wallet type. Failed to get converter wallets. {@ExMess}", ex.Message);
-                }
-
                 foreach (var wallet in walletBalances)
                 {
-                    SetWalletTypes(wallet, converterWalletIds);
+                    if (Program.Settings.BonusServiceWalletId == wallet.WalletId)
+                    {
+                        wallet.WalletTypes |= InternalWalletTypes.Bonus;
+                    }
                 }
+                
+                SetConverterWalletTypes(walletBalances);
+                await SetHighYieldWalletTypes(walletBalances);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to update wallets types. {@ExMess}", ex.Message);
+                _logger.LogError(ex, "Failed to set wallets types. {@ExMess}", ex.Message);
             }
-            
-            return Task.CompletedTask;
         }
 
-        private void SetWalletTypes(InternalWalletBalance wallet, IReadOnlySet<string> converterWalletIds)
+        private void SetConverterWalletTypes(ICollection<InternalWalletBalance> wallets)
         {
             try
             {
-                if (Program.Settings.BonusServiceWalletId == wallet.WalletId)
-                {
-                    wallet.WalletTypes |= InternalWalletTypes.Bonus;
-                }
+                var converterWalletIds = _converterSettingsManager
+                    .GetLiquidityConverterSettingsAsync()?.Settings?
+                    .Select(s => s.BrokerWalletId)
+                    .ToHashSet() ?? new HashSet<string>();
 
-                if (converterWalletIds.Contains(wallet.WalletId))
+                foreach (var wallet in wallets)
                 {
-                    wallet.WalletTypes |= InternalWalletTypes.Converter;
+                    if (converterWalletIds.Contains(wallet.WalletId))
+                    {
+                        wallet.WalletTypes |= InternalWalletTypes.Converter;
+                    }
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to update wallet types for {@WalletId}. {@ExMessage}", wallet.WalletId,
-                    ex.Message);
+                _logger.LogError(ex, "Failed to set Converter wallet types. {@ExMessage}", ex.Message);
+            }
+        }
+        
+        private async Task SetHighYieldWalletTypes(ICollection<InternalWalletBalance> wallets)
+        {
+            try
+            {
+                var settings = await _highYieldService.GetEarnSettings();
+                
+                foreach (var wallet in wallets)
+                {
+                    if (wallet.WalletId == settings?.EarnBrokerWallet?.WalletId)
+                    {
+                        wallet.WalletTypes |= InternalWalletTypes.HighYield;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to set HighYield wallet types. {@ExMessage}", ex.Message);
             }
         }
     }
