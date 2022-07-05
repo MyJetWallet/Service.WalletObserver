@@ -44,8 +44,12 @@ namespace Service.WalletObserver.Jobs
                 TimeSpan.FromSeconds(Program.Settings.BalanceUpdateTimerInSeconds), _logger, DoTime);
             _rpcUnavailableRetryPolicy = Policy
                 .Handle<RpcException>(ex => ex.StatusCode == StatusCode.Unavailable)
-                .WaitAndRetryAsync(3,
-                    retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
+                .WaitAndRetryAsync(new[]
+                    {
+                        TimeSpan.FromSeconds(6),
+                        TimeSpan.FromSeconds(12),
+                        TimeSpan.FromSeconds(18)
+                    },
                     onRetry: (exception, retryCount, context) =>
                     {
                         logger.LogWarning(
