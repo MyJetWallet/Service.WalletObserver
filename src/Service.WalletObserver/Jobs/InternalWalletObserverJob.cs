@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Autofac;
+using Grpc.Core;
 using Microsoft.Extensions.Logging;
 using MyJetWallet.Sdk.Service.Tools;
+using Polly;
+using Polly.Retry;
 using Service.HighYieldEngine.Grpc;
 using Service.Liquidity.Converter.Grpc;
 using Service.WalletObserver.Domain.Models;
@@ -21,6 +24,7 @@ namespace Service.WalletObserver.Jobs
         private readonly InternalWalletObserverMetrics _internalWalletObserverMetrics;
         private readonly ILiquidityConverterSettingsManager _converterSettingsManager;
         private readonly IHighYieldEngineBackofficeService _highYieldService;
+        private readonly AsyncRetryPolicy _rpcUnavailableRetryPolicy;
 
         public InternalWalletObserverJob(ILogger<InternalWalletObserverJob> logger,
             InternalWalletStorage internalWalletStorage,
@@ -38,6 +42,15 @@ namespace Service.WalletObserver.Jobs
             _highYieldService = highYieldService;
             _timer = new MyTaskTimer(nameof(InternalWalletObserverJob),
                 TimeSpan.FromSeconds(Program.Settings.BalanceUpdateTimerInSeconds), _logger, DoTime);
+            _rpcUnavailableRetryPolicy = Policy
+                .Handle<RpcException>(ex => ex.StatusCode == StatusCode.Unavailable)
+                .WaitAndRetryAsync(3,
+                    retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
+                    onRetry: (exception, retryCount, context) =>
+                    {
+                        logger.LogWarning(
+                            $"Failed request {context.OperationKey}, retrying {retryCount}. {exception.Message} {exception.StackTrace}");
+                    });
         }
 
         private async Task DoTime()
@@ -125,7 +138,7 @@ namespace Service.WalletObserver.Jobs
                     }
                 }
                 
-                SetConverterWalletTypes(walletBalances);
+                await SetConverterWalletTypes(walletBalances);
                 await SetHighYieldWalletTypes(walletBalances);
             }
             catch (Exception ex)
@@ -134,12 +147,13 @@ namespace Service.WalletObserver.Jobs
             }
         }
 
-        private void SetConverterWalletTypes(ICollection<InternalWalletBalance> wallets)
+        private async Task SetConverterWalletTypes(ICollection<InternalWalletBalance> wallets)
         {
             try
             {
-                var converterWalletIds = _converterSettingsManager
-                    .GetLiquidityConverterSettingsAsync()?.Settings?
+                var resp = await _rpcUnavailableRetryPolicy.ExecuteAsync(async () =>
+                    _converterSettingsManager.GetLiquidityConverterSettingsAsync());
+                var converterWalletIds = resp?.Settings?
                     .Select(s => s.BrokerWalletId)
                     .ToHashSet() ?? new HashSet<string>();
 
@@ -161,7 +175,8 @@ namespace Service.WalletObserver.Jobs
         {
             try
             {
-                var settings = await _highYieldService.GetEarnSettings();
+                var settings = await _rpcUnavailableRetryPolicy.ExecuteAsync(async () =>
+                    await _highYieldService.GetEarnSettings());
                 
                 foreach (var wallet in wallets)
                 {
